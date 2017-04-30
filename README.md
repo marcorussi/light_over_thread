@@ -48,7 +48,7 @@ Clone this repo in your local directory:
 	$ git clone https://github.com/marcorussi/light_over_thread.git
 
 If you use a Nordic pca10056 board for the server side (light), you must change board BSP defines:
-1) Navigate in `components/boards`;
+1) Navigate in `components/boards` in the SDK folder;
 1) Copy the `pca10056_mod.h` file provided in this project;
 2) Add the following lines in `boards.h` file just after the related pca10056 code:
 
@@ -74,11 +74,17 @@ LINKER_SCRIPT  := $(PROJ_DIR)/nrf52840.ld
 **Build and Flash**
 
 Build each project and flash two different boards as below:
+
 	$ cd light_client
+
 	$ make
+
 	$ make flash
+
 	$ cd ../light_server
+
 	$ make
+
 	$ make flash
 
 You can flash more than one board as server.
