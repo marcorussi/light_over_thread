@@ -69,6 +69,14 @@ NRFJPROG_DIR := /opt/nRF5x-Command-Line-Tools_9_4_0_Linux-x86_64/nrfjprog/
 LINKER_SCRIPT  := $(PROJ_DIR)/nrf52840.ld
 ```
 
+Be sure you have the ARM GCC toolchain installed (gcc-arm-none-eabi-4_9-2015q3 version is advised) and modify the path to it in `/components/toolchain/gcc/Makefile.posix` in the SDK:
+
+```
+GNU_INSTALL_ROOT := /usr/local/gcc-arm-none-eabi-4_9-2015q3
+GNU_VERSION := 4.9.3
+GNU_PREFIX := arm-none-eabi
+```
+
 ---
 
 **Build and Flash**
@@ -76,15 +84,10 @@ LINKER_SCRIPT  := $(PROJ_DIR)/nrf52840.ld
 Build each project and flash two different boards as below:
 
 	$ cd light_client
-
 	$ make
-
 	$ make flash
-
 	$ cd ../light_server
-
 	$ make
-
 	$ make flash
 
 You can flash more than one board as server.
