@@ -37,6 +37,14 @@ Client button assignments:
 BSP_BUTTON_1 of the controller sends messages to toggle lights state between ON and OFF. BSP_BUTTON_2 and BSP_BUTTON_3 dim lights respectively down and up.
 The *single control* state is started by pressing BSP_BUTTON_0 on the server side. The related provisioning CoAp service is added and the controller (client) should send a *single control* multicast request within 5 seconds. Indeed after this time-out, the provisioning resource is removed. If the controller sends the request (by pressing BSP_BUTTON_0) and the server receives it successfully then the server replies with a specific message containing its IPv6 address. The client receives it and stores it as peer device address so next light control messages will be sent as unicast messages to that peer device. Unicast messages control a single light while multicast messages are used for controlling all the lights and sending a *single control* request. In *single control* state, pressing BSP_BUTTON_0 again exits from this state by deleting the peer device. Next light control messages will be sent as multicast.
 
+
+*UART channel*
+The client has a UART channel for sending special commands in JSON format to turn lights on and off as below:
+* lights on: {"command":[{"light":"on"}]}.
+* lights off: {"command":[{"light":"off"}]}.
+
+Note that this UART feature is not well implemented and the JSON string is not properly parsed but just brutally compared. The terminal character '.' is for indicating the end of command to stop buffering and executing the command.
+
 ---
 
 **Install**

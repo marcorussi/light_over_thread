@@ -680,6 +680,9 @@ static void manageUART( void )
 			/* do nothing */
 		}
 
+		/* signal on the board that a message has been received and managed */
+		LEDS_INVERT(BSP_LED_1_MASK);
+
 		/* clear buffer depth */
 		buffer_depth = 0;
 	}
