@@ -39,6 +39,7 @@ The *single control* state is started by pressing BSP_BUTTON_0 on the server sid
 
 
 *UART channel*
+
 The client has a UART channel for sending special commands in JSON format to turn lights on and off as below:
 * lights on: {"command":[{"light":"on"}]}.
 * lights off: {"command":[{"light":"off"}]}.
