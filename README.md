@@ -44,7 +44,7 @@ The client has a UART channel for sending special commands in JSON format to tur
 * lights on: {"command":[{"light":"on"}]}.
 * lights off: {"command":[{"light":"off"}]}.
 
-Note that this UART feature is not well implemented and the JSON string is not properly parsed but just brutally compared. The terminal character '.' is for indicating the end of command to stop buffering and executing the command.
+Note that this UART feature is not well implemented and the JSON string is not properly parsed but just brutally compared. The terminal character '.' is for indicating the end of command to stop buffering and execute the command.
 
 ---
 
