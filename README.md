@@ -1,7 +1,7 @@
 # light_over_thread
 This projects is a simple demo about using Thread networking for controlling one or more lights from a single controller. Three Nordic pca10056 boards are used as two servers and one client roles. 
 
-The application has been developed on top of the Nordic SDK for Thread version 0.8.0 which in turn contains a pre-built version of the [openthread](https://github.com/openthread/openthread) library (see SDK release notes for more details).
+The application has been developed on top of the Nordic SDK for Thread version 0.10.0 which in turn contains a pre-built version of the [openthread](https://github.com/openthread/openthread) library (see SDK release notes for more details).
 
 ---
 
@@ -63,7 +63,7 @@ Find the Makefile (for both client and server), verify and modify following name
 PROJECT_NAME     := light_server
 TARGETS          := nrf52840_xxaa
 OUTPUT_DIRECTORY := _build
-SDK_ROOT := /opt/nRF5_SDK_for_Thread_v0.8.0_fc4eda1
+SDK_ROOT := /opt/nRF5_SDK_for_Thread_v0.10.0_e1c3d11
 PROJ_DIR := ./
 NRFJPROG_DIR := /opt/nRF5x-Command-Line-Tools_9_4_0_Linux-x86_64/nrfjprog/
 LINKER_SCRIPT  := $(PROJ_DIR)/nrf52840.ld
