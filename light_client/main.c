@@ -47,8 +47,15 @@
 
 
 
+/* Enable or disable UART channel */
+#define UART_CHANNEL_ENABLED
+
+
+
+
 /* ---------------- local constants -----------------  */
 
+#ifdef UART_CHANNEL_ENABLED
 /* UART pins defines */
 #define DATA_UART_RX_PIN_NUM 				30	
 #define DATA_UART_TX_PIN_NUM 				31
@@ -57,6 +64,7 @@
 /* UART buffers size */
 #define UART_TX_BUF_SIZE 					256	/**< UART TX buffer size. */
 #define UART_RX_BUF_SIZE 					256	/**< UART RX buffer size. */
+#endif
 
 
 
@@ -104,16 +112,21 @@ static const otIp6Address m_unspecified_ipv6 = { .mFields.m8 = { 0 } };
 
 /* Provisioning enable request flag */
 static bool provisioning_enable_req = false;
-#if 0
+
+#ifdef UART_CHANNEL_ENABLED
 /* flag to set data are received */
 static bool data_received = false;
 
 /* UART data buffer */
 static uint8_t data_buffer[100];
 
+/* UART buffer depth */
+static uint8_t buffer_depth;
+
 /* UART buffer index */
 static uint8_t buf_idx = 0;
 #endif
+
 
 
 
@@ -136,8 +149,10 @@ static void coap_init							(void);
 static void timer_init							(void);
 static void leds_init							(void);
 static void thread_bsp_init					(void);
-//static void manageUART							(void);
-//static void uart_error_handle					(app_uart_evt_t *);
+#ifdef UART_CHANNEL_ENABLED
+static void manageUART							(void);
+static void uart_error_handle					(app_uart_evt_t *);
+#endif
 
 
 
@@ -639,7 +654,7 @@ static void thread_bsp_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
-#if 0
+#ifdef UART_CHANNEL_ENABLED
 /* function to manage UART data */
 static void manageUART( void )
 {
@@ -650,12 +665,12 @@ static void manageUART( void )
 		data_received = false;
 
 		/* ATTENTION: brutal compare of JSON string... temporary code... */
-		if(0 == memcmp(data_buffer, "{\"command\":[{\"light\":\"on\"}]}", strlen((const char*)data_buffer)))
+		if(0 == memcmp(data_buffer, "{\"command\":[{\"light\":\"on\"}]}", buffer_depth))
 		{
 			/* send a multi light request to turn lights on */
 			multicast_light_request_send(m_app.p_ot_instance, LIGHT_ON);	
 		}
-		else if(0 == memcmp(data_buffer, "{\"command\":[{\"light\":\"off\"}]}", strlen((const char*)data_buffer)))
+		else if(0 == memcmp(data_buffer, "{\"command\":[{\"light\":\"off\"}]}", buffer_depth))
 		{
 			/* send a multi light request to turn lights off */
 			multicast_light_request_send(m_app.p_ot_instance, LIGHT_OFF);	
@@ -664,6 +679,9 @@ static void manageUART( void )
 		{
 			/* do nothing */
 		}
+
+		/* clear buffer depth */
+		buffer_depth = 0;
 	}
 }
 
@@ -690,6 +708,10 @@ static void uart_error_handle(app_uart_evt_t * p_event)
 		/* if termination character has been received */
 		if(data_buffer[buf_idx] == '.')
 		{
+			/* store buffer depth */
+			buffer_depth = buf_idx;
+			/* clear buffer index */
+			buf_idx = 0;
 			/* set flag */
 			data_received = true;
 		}
@@ -704,13 +726,14 @@ static void uart_error_handle(app_uart_evt_t * p_event)
 
 
 
+
 /* ----------------- Main loop --------------------- */
 int main(int argc, char *argv[])
 {
-	//uint32_t err_code;
-
 	NRF_LOG_INIT(NULL);
-#if 0
+#ifdef UART_CHANNEL_ENABLED
+	uint32_t err_code;
+	
 	const app_uart_comm_params_t comm_params =
    {
        DATA_UART_RX_PIN_NUM, 
@@ -744,8 +767,10 @@ int main(int argc, char *argv[])
 	{
 		otTaskletsProcess(m_app.p_ot_instance);
 		PlatformProcessDrivers(m_app.p_ot_instance);
+#ifdef UART_CHANNEL_ENABLED
 		/* call function to manage UART data */
-		//manageUART();
+		manageUART();
+#endif
 	}
 }
 
