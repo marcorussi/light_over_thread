@@ -24,7 +24,7 @@
 
 
 
-/* ------------------- Inclusions ------------------- */
+/* ------------ Inclusions ---------------- */
 
 #include <assert.h>
 #include <stdbool.h>
@@ -32,6 +32,7 @@
 #include <string.h>
 #include "bsp_thread.h"
 #include "app_timer.h"
+#include "app_uart.h"
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 
@@ -39,22 +40,37 @@
 #include <openthread/diag.h>
 #include <openthread/coap.h>
 #include <openthread/cli.h>
+#include <openthread/thread_ftd.h>
 #include <openthread/platform/platform.h>
 #include <openthread/platform/alarm.h>
 
 
 
 
-/* ------------------- typedef enums ------------------- */
+/* ---------------- local constants -----------------  */
 
-/* Device type enum */
+/* UART pins defines */
+#define DATA_UART_RX_PIN_NUM 				30	
+#define DATA_UART_TX_PIN_NUM 				31
+#define DATA_UART_RTS_PIN_NUM 			28
+#define DATA_UART_CTS_PIN_NUM 			29
+/* UART buffers size */
+#define UART_TX_BUF_SIZE 					256	/**< UART TX buffer size. */
+#define UART_RX_BUF_SIZE 					256	/**< UART RX buffer size. */
+
+
+
+
+/* ---------------- local typedefs -----------------  */
+
+/* device type */
 typedef enum
 {
     DEVICE_TYPE_REMOTE_CONTROL,
     DEVICE_TYPE_LIGHT
 } device_type_t;
 
-/* Light command enum */
+/* light commands */
 typedef enum
 {
     LIGHT_OFF = 0,
@@ -62,89 +78,84 @@ typedef enum
     LIGHT_TOGGLE
 } light_command_t;
 
-
-
-
-/* ------------------- typedef struct ------------------- */
-
-/* Structure to store application data */
+/* application info */
 typedef struct
 {
-    otInstance   * p_ot_instance;       	/**< A pointer to the OpenThread instance. */
-    otIp6Address   peer_address;        	/**< An address of a related server node. */
-	uint8_t        multicast_dim_value; 	/**< Information which multicast dimming value should be sent next. */
+	otInstance   * p_ot_instance;       	/**< A pointer to the OpenThread instance. */
+	otIp6Address   peer_address;        	/**< An address of a related server node. */
+	uint8_t        multicast_dim_value;		/**< Information which multicast dimming value should be sent next. */
 } application_t;
 
 
 
 
-/* ------------------- local variables ------------------- */
+/* ---------------- local variables -----------------  */
 
-/* Store application data */
-application_t m_app =
+/* store application info */
+static application_t m_app =
 {
-    .p_ot_instance      	= NULL,
-    .peer_address       	= { .mFields.m8 = { 0 } },
+	.p_ot_instance      = NULL,
+	.peer_address       = { .mFields.m8 = { 0 } },
 	.multicast_dim_value	= 0,
 };
 
-/* Provisioning enable request flag */
-static bool provisioning_enable_req = false;
-
-
-
-
-/* ------------------- local const variables ------------------- */
-
-/* Store const unspecified IPv6 address */
+/* IPv6 address */
 static const otIp6Address m_unspecified_ipv6 = { .mFields.m8 = { 0 } };
 
+/* Provisioning enable request flag */
+static bool provisioning_enable_req = false;
+#if 0
+/* flag to set data are received */
+static bool data_received = false;
+
+/* UART data buffer */
+static uint8_t data_buffer[100];
+
+/* UART buffer index */
+static uint8_t buf_idx = 0;
+#endif
 
 
 
-/* ------------------- local functions implementation ------------------- */
+/* ----------------------- local functions prototypes --------------------- */
 
-void otTaskletsSignalPending(otInstance *aInstance)
-{
-    (void)aInstance;
-}
+static void light_response_handler			(void *, otCoapHeader *, otMessage *, const otMessageInfo *, otError);
+static void dim_response_handler				(void *, otCoapHeader *, otMessage *, const otMessageInfo *, otError);
+static void unicast_light_request_send		(otInstance *, uint8_t);
+static void unicast_dim_request_send		(otInstance *, uint8_t);
+static void multicast_light_request_send	(otInstance *, uint8_t);
+static void multicast_dim_request_send		(otInstance *, uint8_t);
+static void provisioning_response_handler	(void *, otCoapHeader *, otMessage *, const otMessageInfo *, otError);
+static void provisioning_request_send		(otInstance *);
+static void coap_default_handler				(void *, otCoapHeader *, otMessage *, const otMessageInfo *);
+static void role_change_handler				(void *, otDeviceRole);
+static void state_changed_callback			(uint32_t, void *);
+static void bsp_event_handler					(bsp_event_t);
+static void thread_init							(void);
+static void coap_init							(void);
+static void timer_init							(void);
+static void leds_init							(void);
+static void thread_bsp_init					(void);
+//static void manageUART							(void);
+//static void uart_error_handle					(app_uart_evt_t *);
 
 
-/* Dimming response handler function */
-void dim_response_handler(void                * p_context,
-                          otCoapHeader        * p_header,
-                          otMessage           * p_message,
-                          const otMessageInfo * p_message_info,
-                          ThreadError           result)
+
+
+/* ------------------- local functions implementation ------------------ */
+
+/* CoAP light response handler */
+static void light_response_handler(void                * p_context,
+                                   otCoapHeader        * p_header,
+                                   otMessage           * p_message,
+                                   const otMessageInfo * p_message_info,
+                                   otError               result)
 {
     (void)p_context;
     (void)p_header;
     (void)p_message;
 
-    if (result == kThreadError_None)
-    {
-        NRF_LOG_INFO("Received dimming control response.\r\n");
-    }
-    else
-    {
-        NRF_LOG_INFO("Failed to receive response: %d\r\n", result);
-        m_app.peer_address = m_unspecified_ipv6;
-    }
-}
-
-
-/* Light response handler function */
-void light_response_handler(void                * p_context,
-                            otCoapHeader        * p_header,
-                            otMessage           * p_message,
-                            const otMessageInfo * p_message_info,
-                            ThreadError           result)
-{
-    (void)p_context;
-    (void)p_header;
-    (void)p_message;
-
-    if (result == kThreadError_None)
+    if (result == OT_ERROR_NONE)
     {
         NRF_LOG_INFO("Received light control response.\r\n");
     }
@@ -156,65 +167,40 @@ void light_response_handler(void                * p_context,
 }
 
 
-/* Function to send a dimming request to a peer device (unicast) */
-void unicast_dim_request_send(otInstance * p_instance, uint8_t dim_value)
+/* Dimming response handler function */
+static void dim_response_handler(void                * p_context,
+                          			otCoapHeader        * p_header,
+                          			otMessage           * p_message,
+                          			const otMessageInfo * p_message_info,
+                          			otError           	 result)
 {
-    ThreadError   error = kThreadError_None;
-    otMessage   * p_message;
-    otMessageInfo messageInfo;
-    otCoapHeader  header;
+    (void)p_context;
+    (void)p_header;
+    (void)p_message;
 
-    do
+    if (result == OT_ERROR_NONE)
     {
-        otCoapHeaderInit(&header, kCoapTypeConfirmable, kCoapRequestPut);
-        otCoapHeaderGenerateToken(&header, 2);
-        otCoapHeaderAppendUriPathOptions(&header, "dim");
-        otCoapHeaderSetPayloadMarker(&header);
-
-        p_message = otCoapNewMessage(p_instance, &header);
-        if (p_message == NULL)
-        {
-            NRF_LOG_INFO("Failed to allocate message for CoAP Request\r\n");
-            break;
-        }
-
-        error = otMessageAppend(p_message, &dim_value, sizeof(dim_value));
-        if (error != kThreadError_None)
-        {
-            break;
-        }
-
-        memset(&messageInfo, 0, sizeof(messageInfo));
-        messageInfo.mInterfaceId = OT_NETIF_INTERFACE_ID_THREAD;
-        messageInfo.mPeerPort = OT_DEFAULT_COAP_PORT;
-        memcpy(&messageInfo.mPeerAddr, &m_app.peer_address, sizeof(messageInfo.mPeerAddr));
-
-        error = otCoapSendRequest(p_instance,
-                                  p_message,
-                                  &messageInfo,
-                                  &dim_response_handler,
-                                  p_instance);
-    } while (false);
-
-    if (error != kThreadError_None && p_message != NULL)
+        NRF_LOG_INFO("Received dimming control response.\r\n");
+    }
+    else
     {
-        NRF_LOG_INFO("Failed to send CoAP Request: %d\r\n", error);
-        otMessageFree(p_message);
+        NRF_LOG_INFO("Failed to receive response: %d\r\n", result);
+        m_app.peer_address = m_unspecified_ipv6;
     }
 }
 
 
-/* Function to send a light request to a peer device (unicast) */
-void unicast_light_request_send(otInstance * p_instance, uint8_t command)
+/* CoAP unicast light request */
+static void unicast_light_request_send(otInstance * p_instance, uint8_t command)
 {
-    ThreadError   error = kThreadError_None;
+    otError       error = OT_ERROR_NONE;
     otMessage   * p_message;
     otMessageInfo messageInfo;
     otCoapHeader  header;
 
     do
     {
-        otCoapHeaderInit(&header, kCoapTypeConfirmable, kCoapRequestPut);
+        otCoapHeaderInit(&header, OT_COAP_TYPE_CONFIRMABLE, OT_COAP_CODE_PUT);
         otCoapHeaderGenerateToken(&header, 2);
         otCoapHeaderAppendUriPathOptions(&header, "light");
         otCoapHeaderSetPayloadMarker(&header);
@@ -227,7 +213,7 @@ void unicast_light_request_send(otInstance * p_instance, uint8_t command)
         }
 
         error = otMessageAppend(p_message, &command, sizeof(command));
-        if (error != kThreadError_None)
+        if (error != OT_ERROR_NONE)
         {
             break;
         }
@@ -244,7 +230,7 @@ void unicast_light_request_send(otInstance * p_instance, uint8_t command)
                                   p_instance);
     } while (false);
 
-    if (error != kThreadError_None && p_message != NULL)
+    if (error != OT_ERROR_NONE && p_message != NULL)
     {
         NRF_LOG_INFO("Failed to send CoAP Request: %d\r\n", error);
         otMessageFree(p_message);
@@ -252,17 +238,18 @@ void unicast_light_request_send(otInstance * p_instance, uint8_t command)
 }
 
 
-/* Function to send a dimming request to any device (multicast) */
-void multicast_dim_request_send(otInstance * p_instance, uint8_t dim_value)
+/* Function to send a dimming request to a peer device (unicast) */
+static void unicast_dim_request_send(otInstance * p_instance, uint8_t dim_value)
 {
-    ThreadError   error = kThreadError_None;
+    otError       error = OT_ERROR_NONE;
     otMessage   * p_message;
     otMessageInfo messageInfo;
     otCoapHeader  header;
 
     do
     {
-        otCoapHeaderInit(&header, kCoapTypeNonConfirmable, kCoapRequestPut);
+        otCoapHeaderInit(&header, OT_COAP_TYPE_CONFIRMABLE, OT_COAP_CODE_PUT);
+        otCoapHeaderGenerateToken(&header, 2);
         otCoapHeaderAppendUriPathOptions(&header, "dim");
         otCoapHeaderSetPayloadMarker(&header);
 
@@ -274,7 +261,97 @@ void multicast_dim_request_send(otInstance * p_instance, uint8_t dim_value)
         }
 
         error = otMessageAppend(p_message, &dim_value, sizeof(dim_value));
-        if (error != kThreadError_None)
+        if (error != OT_ERROR_NONE)
+        {
+            break;
+        }
+
+        memset(&messageInfo, 0, sizeof(messageInfo));
+        messageInfo.mInterfaceId = OT_NETIF_INTERFACE_ID_THREAD;
+        messageInfo.mPeerPort = OT_DEFAULT_COAP_PORT;
+        memcpy(&messageInfo.mPeerAddr, &m_app.peer_address, sizeof(messageInfo.mPeerAddr));
+
+        error = otCoapSendRequest(p_instance,
+                                  p_message,
+                                  &messageInfo,
+                                  &dim_response_handler,
+                                  p_instance);
+    } while (false);
+
+    if (error != OT_ERROR_NONE && p_message != NULL)
+    {
+        NRF_LOG_INFO("Failed to send CoAP Request: %d\r\n", error);
+        otMessageFree(p_message);
+    }
+}
+
+
+/* CoAP multicast light request */
+static void multicast_light_request_send(otInstance * p_instance, uint8_t command)
+{
+    otError       error = OT_ERROR_NONE;
+    otMessage   * p_message;
+    otMessageInfo messageInfo;
+    otCoapHeader  header;
+
+    do
+    {
+        otCoapHeaderInit(&header, OT_COAP_TYPE_CONFIRMABLE, OT_COAP_CODE_PUT);
+        otCoapHeaderAppendUriPathOptions(&header, "light");
+        otCoapHeaderSetPayloadMarker(&header);
+
+        p_message = otCoapNewMessage(p_instance, &header);
+        if (p_message == NULL)
+        {
+            NRF_LOG_INFO("Failed to allocate message for CoAP Request\r\n");
+            break;
+        }
+
+        error = otMessageAppend(p_message, &command, sizeof(command));
+        if (error != OT_ERROR_NONE)
+        {
+            break;
+        }
+
+        memset(&messageInfo, 0, sizeof(messageInfo));
+        messageInfo.mInterfaceId = OT_NETIF_INTERFACE_ID_THREAD;
+        messageInfo.mPeerPort = OT_DEFAULT_COAP_PORT;
+        otIp6AddressFromString("FF03::1", &messageInfo.mPeerAddr);
+
+        error = otCoapSendRequest(p_instance, p_message, &messageInfo, NULL, NULL);
+    } while (false);
+
+    if (error != OT_ERROR_NONE && p_message != NULL)
+    {
+        NRF_LOG_INFO("Failed to send CoAP Request: %d\r\n", error);
+        otMessageFree(p_message);
+    }
+}
+
+
+/* Function to send a dimming request to any device (multicast) */
+static void multicast_dim_request_send(otInstance * p_instance, uint8_t dim_value)
+{
+    otError       error = OT_ERROR_NONE;
+    otMessage   * p_message;
+    otMessageInfo messageInfo;
+    otCoapHeader  header;
+
+    do
+    {
+        otCoapHeaderInit(&header, OT_COAP_TYPE_CONFIRMABLE, OT_COAP_CODE_PUT);
+        otCoapHeaderAppendUriPathOptions(&header, "dim");
+        otCoapHeaderSetPayloadMarker(&header);
+
+        p_message = otCoapNewMessage(p_instance, &header);
+        if (p_message == NULL)
+        {
+            NRF_LOG_INFO("Failed to allocate message for CoAP Request\r\n");
+            break;
+        }
+
+        error = otMessageAppend(p_message, &dim_value, sizeof(dim_value));
+        if (error != OT_ERROR_NONE)
         {
             break;
         }
@@ -291,7 +368,7 @@ void multicast_dim_request_send(otInstance * p_instance, uint8_t dim_value)
 								  NULL);
     } while (false);
 
-    if (error != kThreadError_None && p_message != NULL)
+    if (error != OT_ERROR_NONE && p_message != NULL)
     {
         NRF_LOG_INFO("Failed to send CoAP Request: %d\r\n", error);
         otMessageFree(p_message);
@@ -301,62 +378,19 @@ void multicast_dim_request_send(otInstance * p_instance, uint8_t dim_value)
 }
 
 
-/* Function to send a light request to any device (multicast) */
-void multicast_light_request_send(otInstance * p_instance, uint8_t command)
-{
-    ThreadError   error = kThreadError_None;
-    otMessage   * p_message;
-    otMessageInfo messageInfo;
-    otCoapHeader  header;
-
-    do
-    {
-        otCoapHeaderInit(&header, kCoapTypeNonConfirmable, kCoapRequestPut);
-        otCoapHeaderAppendUriPathOptions(&header, "light");
-        otCoapHeaderSetPayloadMarker(&header);
-
-        p_message = otCoapNewMessage(p_instance, &header);
-        if (p_message == NULL)
-        {
-            NRF_LOG_INFO("Failed to allocate message for CoAP Request\r\n");
-            break;
-        }
-
-        error = otMessageAppend(p_message, &command, sizeof(command));
-        if (error != kThreadError_None)
-        {
-            break;
-        }
-
-        memset(&messageInfo, 0, sizeof(messageInfo));
-        messageInfo.mInterfaceId = OT_NETIF_INTERFACE_ID_THREAD;
-        messageInfo.mPeerPort = OT_DEFAULT_COAP_PORT;
-        otIp6AddressFromString("FF03::1", &messageInfo.mPeerAddr);
-
-        error = otCoapSendRequest(p_instance, p_message, &messageInfo, NULL, NULL);
-    } while (false);
-
-    if (error != kThreadError_None && p_message != NULL)
-    {
-        NRF_LOG_INFO("Failed to send CoAP Request: %d\r\n", error);
-        otMessageFree(p_message);
-    }
-}
-
-
-/* Provisioning response handler function */
-void provisioning_response_handler(void                * p_context,
-                                   otCoapHeader        * p_header,
-                                   otMessage           * p_message,
-                                   const otMessageInfo * p_message_info,
-                                   ThreadError           result)
+/* CoAP provisioning response handler */
+static void provisioning_response_handler(void                * p_context,
+                                          otCoapHeader        * p_header,
+                                          otMessage           * p_message,
+                                          const otMessageInfo * p_message_info,
+                                          otError               result)
 {
     (void)p_context;
     (void)p_header;
 
     uint8_t peer_type;
 
-    if (result == kThreadError_None)
+    if (result == OT_ERROR_NONE)
     {
         if ((otMessageRead(p_message, otMessageGetOffset(p_message), &peer_type, 1) == 1) &&
             (peer_type == DEVICE_TYPE_LIGHT))
@@ -374,17 +408,17 @@ void provisioning_response_handler(void                * p_context,
 }
 
 
-/* Function to send a provisioning request */
-void provisioning_request_send(otInstance * p_instance)
+/* CoAP send provisioning request */
+static void provisioning_request_send(otInstance * p_instance)
 {
-    ThreadError   error = kThreadError_None;
+    otError       error = OT_ERROR_NONE;
     otCoapHeader  header;
     otMessage   * p_request;
     otMessageInfo aMessageInfo;
 
     do
     {
-        otCoapHeaderInit(&header, kCoapTypeNonConfirmable, kCoapRequestGet);
+        otCoapHeaderInit(&header, OT_COAP_TYPE_NON_CONFIRMABLE, OT_COAP_CODE_GET);
         otCoapHeaderGenerateToken(&header, 2);
         otCoapHeaderAppendUriPathOptions(&header, "provisioning");
 
@@ -400,32 +434,44 @@ void provisioning_request_send(otInstance * p_instance)
         otIp6AddressFromString("FF03::1", &aMessageInfo.mPeerAddr);
 
         error = otCoapSendRequest(p_instance,
-                				  p_request,
+                                  p_request,
                                   &aMessageInfo,
                                   provisioning_response_handler,
                                   p_instance);
     } while (false);
 
-    if (error != kThreadError_None && p_request != NULL)
+    if (error != OT_ERROR_NONE && p_request != NULL)
     {
         otMessageFree(p_request);
     }
 }
 
 
-/* Function to manage a role change */
-static void handle_role_change(void * p_context, otDeviceRole role)
+/* Default CoAP Handler */
+static void coap_default_handler(void *p_context, otCoapHeader *p_header, otMessage *p_message,
+                                 const otMessageInfo *p_message_info)
+{
+	(void)p_context;
+	(void)p_header;
+	(void)p_message;
+	(void)p_message_info;
+
+	NRF_LOG_INFO("Received CoAP message that does not match any request or resource\r\n");
+}
+
+
+/* State change handling */
+static void role_change_handler(void * p_context, otDeviceRole role)
 {
     switch(role)
     {
-        case kDeviceRoleChild:
-        case kDeviceRoleRouter:
-        case kDeviceRoleLeader:
+        case OT_DEVICE_ROLE_CHILD:
+        case OT_DEVICE_ROLE_ROUTER:
+        case OT_DEVICE_ROLE_LEADER:
             break;
 
-        case kDeviceRoleOffline:
-        case kDeviceRoleDisabled:
-        case kDeviceRoleDetached:
+        case OT_DEVICE_ROLE_DISABLED:
+        case OT_DEVICE_ROLE_DETACHED:
         default:
             m_app.peer_address = m_unspecified_ipv6;
             break;
@@ -433,15 +479,15 @@ static void handle_role_change(void * p_context, otDeviceRole role)
 }
 
 
-/* State changed callback function */
-void state_changed_callback(uint32_t flags, void * p_context)
+/* state change callback */
+static void state_changed_callback(uint32_t flags, void * p_context)
 {
-    if (flags & OT_NET_ROLE)
+    if (flags & OT_CHANGED_THREAD_ROLE)
     {
-        handle_role_change(p_context, otThreadGetDeviceRole(p_context));
+        role_change_handler(p_context, otThreadGetDeviceRole(p_context));
     }
 
-    if (flags & OT_NET_PARTITION_ID)
+    if (flags & OT_CHANGED_THREAD_PARTITION_ID)
     {
         m_app.peer_address = m_unspecified_ipv6;
     }
@@ -450,89 +496,91 @@ void state_changed_callback(uint32_t flags, void * p_context)
 }
 
 
-/* BSP event handler function (buttons) */
-void bsp_event_handler(bsp_event_t event)
+/* Buttons event handler */
+static void bsp_event_handler(bsp_event_t event)
 {
     switch (event)
     {
-		case BSP_EVENT_KEY_0:
-			/* switch provisioning request flag value */
-			if(true == provisioning_enable_req)
-			{
-				provisioning_enable_req = false;
-				/* remove peer address */
-				m_app.peer_address = m_unspecified_ipv6;
-			}
-			else
-			{
-				provisioning_enable_req = true;
-				/* send provisioning request (always multicast) */
-            	provisioning_request_send(m_app.p_ot_instance);
-			}
+        case BSP_EVENT_KEY_0:
+            /* switch provisioning request flag value */
+				if(true == provisioning_enable_req)
+				{
+					provisioning_enable_req = false;
+					/* remove peer address */
+					m_app.peer_address = m_unspecified_ipv6;
+				}
+				else
+				{
+					provisioning_enable_req = true;
+					/* send provisioning request (always multicast) */
+		     		provisioning_request_send(m_app.p_ot_instance);
+				}
             break;
 
         case BSP_EVENT_KEY_1:
-			/* if peer address is valid */
-            if (!otIp6IsAddressEqual(&m_app.peer_address, &m_unspecified_ipv6))
-            {
-				/* send unicast light toggle request */
-                unicast_light_request_send(m_app.p_ot_instance, LIGHT_TOGGLE);
-            }
-			else
-			{
-				/* send multicast light toggle request */
-		       	multicast_light_request_send(m_app.p_ot_instance, LIGHT_TOGGLE);
-			}
-            break;
-
-        case BSP_EVENT_KEY_2:
-			/* decrement dimming value */
-			if(m_app.multicast_dim_value > 0)
-			{
-				m_app.multicast_dim_value -= 10;
-			}
             /* if peer address is valid */
             if (!otIp6IsAddressEqual(&m_app.peer_address, &m_unspecified_ipv6))
             {
-				/* send unicast dimming value */
-                unicast_dim_request_send(m_app.p_ot_instance, m_app.multicast_dim_value);
+					/* send unicast light toggle request */
+            	unicast_light_request_send(m_app.p_ot_instance, LIGHT_TOGGLE);
             }
-			else
-			{
-				/* send multicast dimming value */
-		       	multicast_dim_request_send(m_app.p_ot_instance, m_app.multicast_dim_value);
-			}
+				else
+				{
+					/* send multicast light toggle request */
+					multicast_light_request_send(m_app.p_ot_instance, LIGHT_TOGGLE);
+				}
+            break;
+
+        case BSP_EVENT_KEY_2:
+            /* decrement dimming value */
+				if(m_app.multicast_dim_value > 0)
+				{
+					m_app.multicast_dim_value -= 10;
+				}
+	         /* if peer address is valid */
+	         if (!otIp6IsAddressEqual(&m_app.peer_address, &m_unspecified_ipv6))
+	         {
+					/* send unicast dimming value */
+	        		unicast_dim_request_send(m_app.p_ot_instance, m_app.multicast_dim_value);
+	         }
+				else
+				{
+					/* send multicast dimming value */
+					multicast_dim_request_send(m_app.p_ot_instance, m_app.multicast_dim_value);
+				}
             break;
 
         case BSP_EVENT_KEY_3:
-			/* increment dimming value */
-			if(m_app.multicast_dim_value < 100)
-			{
-				m_app.multicast_dim_value += 10;
-			}
-			/* if peer address is valid */
-			if (!otIp6IsAddressEqual(&m_app.peer_address, &m_unspecified_ipv6))
-            {
-				/* send unicast dimming value */
-                unicast_dim_request_send(m_app.p_ot_instance, m_app.multicast_dim_value);
-            }
-			else
-			{
-				/* send multicast dimming value */
-		       	multicast_dim_request_send(m_app.p_ot_instance, m_app.multicast_dim_value);
-			}
+            /* increment dimming value */
+				if(m_app.multicast_dim_value < 100)
+				{
+					m_app.multicast_dim_value += 10;
+				}
+				/* if peer address is valid */
+				if (!otIp6IsAddressEqual(&m_app.peer_address, &m_unspecified_ipv6))
+	         {
+					/* send unicast dimming value */
+	        		unicast_dim_request_send(m_app.p_ot_instance, m_app.multicast_dim_value);
+	         }
+				else
+				{
+					/* send multicast dimming value */
+					multicast_dim_request_send(m_app.p_ot_instance, m_app.multicast_dim_value);
+				}
             break;
 
         default:
-            return; /* no implementation needed */
+            return; // no implementation needed
     }
 }
 
 
-/* Function to initialise Thread networking */
-static otInstance * initialize_thread(void)
+/* Thread Initialization */
+static void thread_init(void)
 {
     otInstance *p_instance;
+
+    PlatformInit(0, NULL);
 
     p_instance = otInstanceInit();
     assert(p_instance);
@@ -542,35 +590,47 @@ static otInstance * initialize_thread(void)
     NRF_LOG_INFO("Thread version: %s\r\n", (uint32_t)otGetVersionString());
     NRF_LOG_INFO("Network name:   %s\r\n", (uint32_t)otThreadGetNetworkName(p_instance));
 
-    assert(otSetStateChangedCallback(p_instance, &state_changed_callback, p_instance) == kThreadError_None);
+    assert(otSetStateChangedCallback(p_instance, &state_changed_callback, p_instance) == OT_ERROR_NONE);
 
-    assert(otLinkSetChannel(p_instance, THREAD_CHANNEL) == kThreadError_None);
-    assert(otLinkSetPanId(p_instance, THREAD_PANID) == kThreadError_None);
-    assert(otIp6SetEnabled(p_instance, true) == kThreadError_None);
-    assert(otThreadSetEnabled(p_instance, true) == kThreadError_None);
+    if (!otDatasetIsCommissioned(p_instance))
+    {
+        assert(otLinkSetChannel(p_instance, THREAD_CHANNEL) == OT_ERROR_NONE);
+        assert(otLinkSetPanId(p_instance, THREAD_PANID) == OT_ERROR_NONE);
+    }
 
-    return p_instance;
+    assert(otIp6SetEnabled(p_instance, true) == OT_ERROR_NONE);
+    assert(otThreadSetEnabled(p_instance, true) == OT_ERROR_NONE);
+
+    m_app.p_ot_instance = p_instance;
 }
 
 
-/* Function to init timer */
-void initialize_timer(void)
+/* CoAp init */
+static void coap_init(void)
+{
+    assert(otCoapStart(m_app.p_ot_instance, OT_DEFAULT_COAP_PORT) == OT_ERROR_NONE);
+    otCoapSetDefaultHandler(m_app.p_ot_instance, coap_default_handler, NULL);
+}
+
+
+/* timer init */
+static void timer_init(void)
 {
     uint32_t err_code = app_timer_init();
     APP_ERROR_CHECK(err_code);
 }
 
 
-/* Function to init LEDs */
-void initialize_leds(void)
+/* LEDs init */
+static void leds_init(void)
 {
     LEDS_CONFIGURE(LEDS_MASK);
     LEDS_OFF(LEDS_MASK);
 }
 
 
-/* Function to init BSP */
-void initialize_bsp(void)
+/* Thread BSP init */
+static void thread_bsp_init(void)
 {
     uint32_t err_code = bsp_init(BSP_INIT_LED | BSP_INIT_BUTTONS, bsp_event_handler);
     APP_ERROR_CHECK(err_code);
@@ -579,31 +639,121 @@ void initialize_bsp(void)
     APP_ERROR_CHECK(err_code);
 }
 
+#if 0
+/* function to manage UART data */
+static void manageUART( void )
+{
+	/* if data are received */
+	if(true == data_received)
+	{
+		/* clear data received flag */
+		data_received = false;
 
-/* main function */
+		/* ATTENTION: brutal compare of JSON string... temporary code... */
+		if(0 == memcmp(data_buffer, "{\"command\":[{\"light\":\"on\"}]}", strlen((const char*)data_buffer)))
+		{
+			/* send a multi light request to turn lights on */
+			multicast_light_request_send(m_app.p_ot_instance, LIGHT_ON);	
+		}
+		else if(0 == memcmp(data_buffer, "{\"command\":[{\"light\":\"off\"}]}", strlen((const char*)data_buffer)))
+		{
+			/* send a multi light request to turn lights off */
+			multicast_light_request_send(m_app.p_ot_instance, LIGHT_OFF);	
+		}
+		else
+		{
+			/* do nothing */
+		}
+	}
+}
+
+
+/* UART error handler function */
+static void uart_error_handle(app_uart_evt_t * p_event)
+{
+	if(p_event->evt_type == APP_UART_COMMUNICATION_ERROR)
+	{
+		/* flush the FIFO buffers */
+		app_uart_flush();
+		APP_ERROR_HANDLER(p_event->data.error_communication);
+	}
+	else if(p_event->evt_type == APP_UART_FIFO_ERROR)
+	{
+		/* flush the FIFO buffers */
+		app_uart_flush();
+		APP_ERROR_HANDLER(p_event->data.error_code);
+	}
+	else if(p_event->evt_type == APP_UART_DATA_READY)
+	{
+		/* store received byte in the buffer */
+		app_uart_get(&data_buffer[buf_idx]);
+		/* if termination character has been received */
+		if(data_buffer[buf_idx] == '.')
+		{
+			/* set flag */
+			data_received = true;
+		}
+		else
+		{
+			/* increment buffer index */
+			buf_idx++;
+		}
+	}
+}
+#endif
+
+
+
+/* ----------------- Main loop --------------------- */
 int main(int argc, char *argv[])
 {
-    NRF_LOG_INIT(NULL);
+	//uint32_t err_code;
 
-    PlatformInit(argc, argv);
-    m_app.p_ot_instance = initialize_thread();
+	NRF_LOG_INIT(NULL);
+#if 0
+	const app_uart_comm_params_t comm_params =
+   {
+       DATA_UART_RX_PIN_NUM, 
+       DATA_UART_TX_PIN_NUM, 
+       DATA_UART_RTS_PIN_NUM, 
+       DATA_UART_CTS_PIN_NUM,
+       APP_UART_FLOW_CONTROL_DISABLED,
+       false,
+       UART_BAUDRATE_BAUDRATE_Baud115200
+   };
 
-    initialize_timer();
-    initialize_bsp();
-    initialize_leds();
+	/* init UART 1 module */
+	APP_UART_FIFO_INIT(&comm_params,
+		        			 UART_RX_BUF_SIZE,
+		                UART_TX_BUF_SIZE,
+		                uart_error_handle,
+		                APP_IRQ_PRIORITY_LOWEST,
+		                err_code);
 
-    while (true)
-    {
-        otTaskletsProcess(m_app.p_ot_instance);
-        PlatformProcessDrivers(m_app.p_ot_instance);
-    }
+	APP_ERROR_CHECK(err_code);
+#endif
+	thread_init();
+	coap_init();
 
-    return 0;
+	timer_init();
+	thread_bsp_init();
+	leds_init();
+
+	/* infinite loop */
+	while (true)
+	{
+		otTaskletsProcess(m_app.p_ot_instance);
+		PlatformProcessDrivers(m_app.p_ot_instance);
+		/* call function to manage UART data */
+		//manageUART();
+	}
 }
 
 
 
 
 /* End of file */
+
+
 
 

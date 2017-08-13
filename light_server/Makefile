@@ -1,13 +1,13 @@
-PROJECT_NAME     := light_server
+PROJECT_NAME     := thread_light_server
 TARGETS          := nrf52840_xxaa
 OUTPUT_DIRECTORY := _build
 
-SDK_ROOT := /opt/nRF5_SDK_for_Thread_v0.8.0_fc4eda1
+SDK_ROOT := /opt/nRF5_SDK_for_Thread_v0.10.0_e1c3d11
 PROJ_DIR := ./
 NRFJPROG_DIR := /opt/nRF5x-Command-Line-Tools_9_4_0_Linux-x86_64/nrfjprog/
 
 $(OUTPUT_DIRECTORY)/nrf52840_xxaa.out: \
-  LINKER_SCRIPT  := $(PROJ_DIR)/nrf52840.ld
+  LINKER_SCRIPT  := $(SDK_ROOT)/external/openthread/linker_scripts/openthread_nrf52840.ld
 
 # Source files common to all targets
 SRC_FILES += \
@@ -17,17 +17,17 @@ SRC_FILES += \
   $(SDK_ROOT)/components/libraries/button/app_button.c \
   $(SDK_ROOT)/components/libraries/util/app_error.c \
   $(SDK_ROOT)/components/libraries/util/app_error_weak.c \
-  $(SDK_ROOT)/components/libraries/scheduler/app_scheduler.c \
   $(SDK_ROOT)/components/libraries/pwm/app_pwm.c \
+  $(SDK_ROOT)/components/libraries/scheduler/app_scheduler.c \
   $(SDK_ROOT)/components/libraries/timer/app_timer.c \
+  $(SDK_ROOT)/components/drivers_nrf/timer/nrf_drv_timer.c \
   $(SDK_ROOT)/components/libraries/util/app_util_platform.c \
+  $(SDK_ROOT)/components/drivers_nrf/ppi/nrf_drv_ppi.c \
   $(SDK_ROOT)/components/libraries/util/nrf_assert.c \
   $(SDK_ROOT)/components/libraries/strerror/nrf_strerror.c \
   $(SDK_ROOT)/components/drivers_nrf/clock/nrf_drv_clock.c \
   $(SDK_ROOT)/components/drivers_nrf/common/nrf_drv_common.c \
   $(SDK_ROOT)/components/drivers_nrf/gpiote/nrf_drv_gpiote.c \
-  $(SDK_ROOT)/components/drivers_nrf/timer/nrf_drv_timer.c \
-  $(SDK_ROOT)/components/drivers_nrf/ppi/nrf_drv_ppi.c \
   $(SDK_ROOT)/components/drivers_nrf/nrf_soc_nosd/nrf_nvic.c \
   $(SDK_ROOT)/components/drivers_nrf/nrf_soc_nosd/nrf_soc.c \
   $(SDK_ROOT)/components/libraries/bsp/bsp.c \
@@ -48,12 +48,10 @@ INC_FOLDERS += \
   $(SDK_ROOT)/external/nrf_cc310/include \
   $(SDK_ROOT)/components/device \
   config \
-  $(SDK_ROOT)/components/libraries/pwm \
   $(SDK_ROOT)/components/drivers_nrf/clock \
-  $(SDK_ROOT)/components/drivers_nrf/timer \
   $(SDK_ROOT)/components/toolchain/cmsis/include \
   $(SDK_ROOT)/components/drivers_nrf/hal \
-  $(SDK_ROOT)/components/drivers_nrf/ppi \
+  $(SDK_ROOT)/components/libraries/pwm \
   $(SDK_ROOT)/components \
   $(SDK_ROOT)/components/libraries/scheduler \
   $(SDK_ROOT)/components/libraries/strerror \
@@ -62,6 +60,8 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/libraries/log/src \
   $(SDK_ROOT)/external/segger_rtt \
   $(SDK_ROOT)/components/toolchain/gcc \
+  $(SDK_ROOT)/components/drivers_nrf/timer \
+  $(SDK_ROOT)/components/drivers_nrf/ppi \
   $(SDK_ROOT)/components/drivers_nrf/delay \
   $(SDK_ROOT)/external/openthread/include \
   $(SDK_ROOT)/components/drivers_nrf/gpiote \
@@ -74,7 +74,7 @@ INC_FOLDERS += \
 
 # Libraries common to all targets
 LIB_FILES += \
-  $(SDK_ROOT)/external/openthread/lib/gcc/libopenthread-cli.a \
+  $(SDK_ROOT)/external/openthread/lib/gcc/libopenthread-cli-ftd.a \
   $(SDK_ROOT)/external/openthread/lib/gcc/libopenthread-ftd.a \
   $(SDK_ROOT)/external/openthread/lib/gcc/libopenthread-nrf52840-sdk.a \
   $(SDK_ROOT)/external/openthread/lib/gcc/libopenthread-diag.a \

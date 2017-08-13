@@ -281,10 +281,87 @@
 #endif //APP_SCHEDULER_ENABLED
 // </e>
 
-
-#ifndef APP_PWM_ENABLED
-#define APP_PWM_ENABLED 1
+// <e> APP_TIMER_ENABLED - app_timer - Application timer functionality
+//==========================================================
+#ifndef APP_TIMER_ENABLED
+#define APP_TIMER_ENABLED 1
 #endif
+#if  APP_TIMER_ENABLED
+// <o> APP_TIMER_CONFIG_RTC_FREQUENCY  - Configure RTC prescaler.
+ 
+// <0=> 32768 Hz 
+// <1=> 16384 Hz 
+// <3=> 8192 Hz 
+// <7=> 4096 Hz 
+// <15=> 2048 Hz 
+// <31=> 1024 Hz 
+
+#ifndef APP_TIMER_CONFIG_RTC_FREQUENCY
+#define APP_TIMER_CONFIG_RTC_FREQUENCY 0
+#endif
+
+// <o> APP_TIMER_CONFIG_IRQ_PRIORITY  - Interrupt priority
+ 
+
+// <i> Priorities 0,2 (nRF51) and 0,1,4,5 (nRF52) are reserved for SoftDevice
+// <0=> 0 (highest) 
+// <1=> 1 
+// <2=> 2 
+// <3=> 3 
+// <4=> 4 
+// <5=> 5 
+// <6=> 6 
+// <7=> 7 
+
+#ifndef APP_TIMER_CONFIG_IRQ_PRIORITY
+#define APP_TIMER_CONFIG_IRQ_PRIORITY 7
+#endif
+
+// <o> APP_TIMER_CONFIG_OP_QUEUE_SIZE - Capacity of timer requests queue. 
+// <i> Size of the queue depends on how many timers are used
+// <i> in the system, how often timers are started and overall
+// <i> system latency. If queue size is too small app_timer calls
+// <i> will fail.
+
+#ifndef APP_TIMER_CONFIG_OP_QUEUE_SIZE
+#define APP_TIMER_CONFIG_OP_QUEUE_SIZE 10
+#endif
+
+// <q> APP_TIMER_CONFIG_USE_SCHEDULER  - Enable scheduling app_timer events to app_scheduler
+ 
+
+#ifndef APP_TIMER_CONFIG_USE_SCHEDULER
+#define APP_TIMER_CONFIG_USE_SCHEDULER 0
+#endif
+
+// <q> APP_TIMER_WITH_PROFILER  - Enable app_timer profiling
+ 
+
+#ifndef APP_TIMER_WITH_PROFILER
+#define APP_TIMER_WITH_PROFILER 0
+#endif
+
+// <q> APP_TIMER_KEEPS_RTC_ACTIVE  - Enable RTC always on
+ 
+
+// <i> If option is enabled RTC is kept running even if there is no active timers.
+// <i> This option can be used when app_timer is used for timestamping.
+
+#ifndef APP_TIMER_KEEPS_RTC_ACTIVE
+#define APP_TIMER_KEEPS_RTC_ACTIVE 0
+#endif
+
+// <o> APP_TIMER_CONFIG_SWI_NUMBER  - Configure SWI instance used.
+ 
+// <0=> 0 
+// <1=> 1 
+
+#ifndef APP_TIMER_CONFIG_SWI_NUMBER
+#define APP_TIMER_CONFIG_SWI_NUMBER 0
+#endif
+
+#endif //APP_TIMER_ENABLED
+// </e>
 
 
 #ifndef TIMER_ENABLED
@@ -436,6 +513,18 @@
 #endif //TIMER_ENABLED
 
 
+#ifndef TIMER0_ENABLED
+#define TIMER0_ENABLED 1
+#endif
+
+// <q> TIMER1_ENABLED  - Enable TIMER1 instance
+ 
+
+#ifndef TIMER1_ENABLED
+#define TIMER1_ENABLED 1
+#endif
+
+
 #ifndef PPI_ENABLED
 #define PPI_ENABLED 1
 #endif
@@ -496,90 +585,12 @@
 #endif //PPI_ENABLED
 
 
-// <e> APP_TIMER_ENABLED - app_timer - Application timer functionality
-//==========================================================
-#ifndef APP_TIMER_ENABLED
-#define APP_TIMER_ENABLED 1
-#endif
-#if  APP_TIMER_ENABLED
-// <o> APP_TIMER_CONFIG_RTC_FREQUENCY  - Configure RTC prescaler.
- 
-// <0=> 32768 Hz 
-// <1=> 16384 Hz 
-// <3=> 8192 Hz 
-// <7=> 4096 Hz 
-// <15=> 2048 Hz 
-// <31=> 1024 Hz 
-
-#ifndef APP_TIMER_CONFIG_RTC_FREQUENCY
-#define APP_TIMER_CONFIG_RTC_FREQUENCY 0
+#ifndef APP_PWM_ENABLED
+#define APP_PWM_ENABLED 1
 #endif
 
-// <o> APP_TIMER_CONFIG_IRQ_PRIORITY  - Interrupt priority
- 
-
-// <i> Priorities 0,2 (nRF51) and 0,1,4,5 (nRF52) are reserved for SoftDevice
-// <0=> 0 (highest) 
-// <1=> 1 
-// <2=> 2 
-// <3=> 3 
-// <4=> 4 
-// <5=> 5 
-// <6=> 6 
-// <7=> 7 
-
-#ifndef APP_TIMER_CONFIG_IRQ_PRIORITY
-#define APP_TIMER_CONFIG_IRQ_PRIORITY 7
-#endif
-
-// <o> APP_TIMER_CONFIG_OP_QUEUE_SIZE - Capacity of timer requests queue. 
-// <i> Size of the queue depends on how many timers are used
-// <i> in the system, how often timers are started and overall
-// <i> system latency. If queue size is too small app_timer calls
-// <i> will fail.
-
-#ifndef APP_TIMER_CONFIG_OP_QUEUE_SIZE
-#define APP_TIMER_CONFIG_OP_QUEUE_SIZE 10
-#endif
-
-// <q> APP_TIMER_CONFIG_USE_SCHEDULER  - Enable scheduling app_timer events to app_scheduler
- 
-
-#ifndef APP_TIMER_CONFIG_USE_SCHEDULER
-#define APP_TIMER_CONFIG_USE_SCHEDULER 0
-#endif
-
-// <q> APP_TIMER_WITH_PROFILER  - Enable app_timer profiling
- 
-
-#ifndef APP_TIMER_WITH_PROFILER
-#define APP_TIMER_WITH_PROFILER 0
-#endif
-
-// <q> APP_TIMER_KEEPS_RTC_ACTIVE  - Enable RTC always on
- 
-
-// <i> If option is enabled RTC is kept running even if there is no active timers.
-// <i> This option can be used when app_timer is used for timestamping.
-
-#ifndef APP_TIMER_KEEPS_RTC_ACTIVE
-#define APP_TIMER_KEEPS_RTC_ACTIVE 0
-#endif
-
-// <o> APP_TIMER_CONFIG_SWI_NUMBER  - Configure SWI instance used.
- 
-// <0=> 0 
-// <1=> 1 
-
-#ifndef APP_TIMER_CONFIG_SWI_NUMBER
-#define APP_TIMER_CONFIG_SWI_NUMBER 0
-#endif
-
-#endif //APP_TIMER_ENABLED
-// </e>
 
 // <q> BUTTON_ENABLED  - app_button - buttons handling module
- 
 
 #ifndef BUTTON_ENABLED
 #define BUTTON_ENABLED 1
@@ -878,7 +889,7 @@
 #define THREAD_PANID 43981
 #endif
 
-// <o> THREAD_CHANNEL - 802.15.4 channel used by Thread  <11-24> 
+// <o> THREAD_CHANNEL - 802.15.4 channel used by Thread  <11-26> 
 
 
 // <i> 802.15.4 channel used by Thread. Defaults to 11.

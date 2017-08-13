@@ -1,13 +1,13 @@
-PROJECT_NAME     := light_client
+PROJECT_NAME     := thread_light_client
 TARGETS          := nrf52840_xxaa
 OUTPUT_DIRECTORY := _build
 
-SDK_ROOT := /opt/nRF5_SDK_for_Thread_v0.8.0_fc4eda1
+SDK_ROOT := /opt/nRF5_SDK_for_Thread_v0.10.0_e1c3d11
 PROJ_DIR := ./
 NRFJPROG_DIR := /opt/nRF5x-Command-Line-Tools_9_4_0_Linux-x86_64/nrfjprog/
 
 $(OUTPUT_DIRECTORY)/nrf52840_xxaa.out: \
-  LINKER_SCRIPT  := $(PROJ_DIR)/nrf52840.ld
+  LINKER_SCRIPT  := $(SDK_ROOT)/external/openthread/linker_scripts/openthread_nrf52840.ld
 
 # Source files common to all targets
 SRC_FILES += \
@@ -18,11 +18,15 @@ SRC_FILES += \
   $(SDK_ROOT)/components/libraries/util/app_error.c \
   $(SDK_ROOT)/components/libraries/util/app_error_weak.c \
   $(SDK_ROOT)/components/libraries/scheduler/app_scheduler.c \
+  $(SDK_ROOT)/components/libraries/fifo/app_fifo.c \
+  $(SDK_ROOT)/components/libraries/uart/app_uart_fifo.c \
   $(SDK_ROOT)/components/libraries/timer/app_timer.c \
   $(SDK_ROOT)/components/libraries/util/app_util_platform.c \
   $(SDK_ROOT)/components/libraries/util/nrf_assert.c \
+  $(SDK_ROOT)/components/libraries/uart/retarget.c \
   $(SDK_ROOT)/components/libraries/strerror/nrf_strerror.c \
   $(SDK_ROOT)/components/drivers_nrf/clock/nrf_drv_clock.c \
+  $(SDK_ROOT)/components/drivers_nrf/uart/nrf_drv_uart.c \
   $(SDK_ROOT)/components/drivers_nrf/common/nrf_drv_common.c \
   $(SDK_ROOT)/components/drivers_nrf/gpiote/nrf_drv_gpiote.c \
   $(SDK_ROOT)/components/drivers_nrf/nrf_soc_nosd/nrf_nvic.c \
@@ -53,7 +57,10 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/libraries/strerror \
   $(SDK_ROOT)/components/libraries/bsp/experimental \
   $(SDK_ROOT)/components/drivers_nrf/nrf_soc_nosd \
+  $(SDK_ROOT)/components/drivers_nrf/uart \
+  $(SDK_ROOT)/components/libraries/fifo \
   $(SDK_ROOT)/components/libraries/log/src \
+  $(SDK_ROOT)/components/libraries/uart \
   $(SDK_ROOT)/external/segger_rtt \
   $(SDK_ROOT)/components/toolchain/gcc \
   $(SDK_ROOT)/components/drivers_nrf/delay \
@@ -68,20 +75,19 @@ INC_FOLDERS += \
 
 # Libraries common to all targets
 LIB_FILES += \
-  $(SDK_ROOT)/external/openthread/lib/gcc/libopenthread-cli.a \
+  $(SDK_ROOT)/external/openthread/lib/gcc/libopenthread-cli-ftd.a \
   $(SDK_ROOT)/external/openthread/lib/gcc/libopenthread-ftd.a \
   $(SDK_ROOT)/external/openthread/lib/gcc/libopenthread-nrf52840-sdk.a \
   $(SDK_ROOT)/external/openthread/lib/gcc/libopenthread-diag.a \
   $(SDK_ROOT)/external/openthread/lib/gcc/libmbedcrypto.a \
   $(SDK_ROOT)/external/nrf_cc310/lib/libcc310_gcc_0.9.0.a \
 
-# C flags common to all targets
+# C flags common to all targets CFLAGS += -DUART_ENABLED=0
 CFLAGS += -DBOARD_PCA10056
 CFLAGS += -DCONFIG_GPIO_AS_PINRESET
 CFLAGS += -DNRF52840_XXAA
 CFLAGS += -DOPENTHREAD_ENABLE_APPLICATION_COAP
 CFLAGS += -DSWI_DISABLE0
-CFLAGS += -DUART_ENABLED=0
 CFLAGS += -D__HEAP_SIZE=0
 CFLAGS += -mcpu=cortex-m4
 CFLAGS += -mthumb -mabi=aapcs
@@ -94,14 +100,13 @@ CFLAGS += -fno-builtin --short-enums
 # C++ flags common to all targets
 CXXFLAGS += \
 
-# Assembler flags common to all targets
+# Assembler flags common to all targets ASMFLAGS += -DUART_ENABLED=0
 ASMFLAGS += -x assembler-with-cpp
 ASMFLAGS += -DBOARD_PCA10056
 ASMFLAGS += -DCONFIG_GPIO_AS_PINRESET
 ASMFLAGS += -DNRF52840_XXAA
 ASMFLAGS += -DOPENTHREAD_ENABLE_APPLICATION_COAP
 ASMFLAGS += -DSWI_DISABLE0
-ASMFLAGS += -DUART_ENABLED=0
 ASMFLAGS += -D__HEAP_SIZE=0
 
 # Linker flags
